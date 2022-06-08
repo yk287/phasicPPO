@@ -1,7 +1,7 @@
 
 
 
-
+import matplotlib.pyplot as plt
 
 import gym
 
@@ -11,8 +11,8 @@ import torch.nn as nn
 
 import torch.nn.functional as F
 
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
 
 from torch.distributions import Categorical
 
@@ -292,15 +292,17 @@ def train(
 
     env.close()
 
-    return last_100_scores,
+    return last_100_scores
 
 def main(config, checkpoint_dir=None):
 
     step = 0
     opts = config['opts']
 
-    running_score = deque(maxlen=100)
+    opts.seed = config['seed']
 
+    running_score = deque(maxlen=100)
+    running_score.append(0)
     # Init agent
 
     # initialize the environments
@@ -315,17 +317,17 @@ def main(config, checkpoint_dir=None):
         checkpoint = torch.load(path)
         model.load_state_dict(checkpoint["model"])
         step = checkpoint["step"]
+        running_score = checkpoint['running_score']
 
         if "lr" in config:
             for param_group in model.optimizer.param_groups:
-                param_group["lr"] = config["D_lr"]
+                param_group["lr"] = config["lr"]
 
         if "lambdas" in config:
             opts.lambdas = config['lambdas']
 
-    running_score.append(0)
 
-    while np.mean(running_score) < opts.target_is:
+    while running_score or np.mean(running_score) < opts.win_condition:
 
         running_score = train(
             model,
@@ -341,11 +343,15 @@ def main(config, checkpoint_dir=None):
                 {
                     "model": model.state_dict(),
                     "step": step,
+                    "running_score": running_score,
                 },
                 path,
             )
 
-        tune.report(iters=step, score=np.mean(running_score))
+        if step % 5 == 0:
+            print(running_score)
+
+        tune.report(iters=step, scores=np.mean(running_score))
 
 def pbt(opts):
 
@@ -367,7 +373,8 @@ def pbt(opts):
         "epsilon": tune.choice([0.1, .15, .20]),
         "ppo_epochs": tune.choice([3, 4, 5]),
         "horizon_multiplier": tune.choice([8, 16, 32]),
-        "lambdas":tune.choice([0.5, 1.0, 1.5, 2.0])
+        "lambdas":tune.choice([0.5, 1.0, 1.5, 2.0]),
+        "seed":tune.uniform(0, 1000000),
         }
 
     reporter = CLIReporter(
@@ -384,7 +391,7 @@ def pbt(opts):
         },
         metric="scores",
         mode="max",
-        num_samples=opts.num_sample,
+        num_samples=opts.num_samples,
         progress_reporter=reporter,
         config=config
     )
@@ -398,6 +405,16 @@ def pbt(opts):
     best_trial = analysis.get_best_trial("scores", "max", "last-5-avg")
     best_checkpoint = analysis.get_best_checkpoint(best_trial, metric="scores")
 
+    dfs = analysis.trial_dataframes
+
+    fig = plt.figure()
+    ax = None  # This plots everything on the same plot
+    for d in dfs.values():
+        ax = d.scores.plot(ax=ax, legend=False)
+    ax.set_xlabel("Epochs")
+    ax.set_ylabel("Score")
+    ax.plot()
+    fig.savefig('tune_history.png')
 
 if __name__ == "__main__":
 

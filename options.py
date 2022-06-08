@@ -63,9 +63,9 @@ class options():
 
         #RAY Options
         self.parser.add_argument('--cpu_use', type=int, nargs='?', default=3, help='Number of CPUs to use')
-        self.parser.add_argument('--gpu_use', type=float, nargs='?', default=.14, help='Fraction of GPUs to use')
+        self.parser.add_argument('--gpu_use', type=float, nargs='?', default=.125, help='Fraction of GPUs to use')
         self.parser.add_argument('--tune_iter', type=int, nargs='?', default=300, help='number of tuning steps')
-        self.parser.add_argument('--num_samples', type=int, nargs='?', default=7, help='number of samples')
+        self.parser.add_argument('--num_samples', type=int, nargs='?', default=8, help='number of samples')
         self.parser.add_argument('--perturb_iter', type=int, nargs='?', default=5, help='number of perturb iterations')
         self.parser.add_argument('--train_iterations_per_step', type=int, nargs='?', default=10, help='number of train iter per STEP()')
         self.parser.add_argument('--model_path', type=str, nargs='?', default='/home/youngwook/.ray/models/mnist_cnn.pt', help='directory where inception model gets saved')
