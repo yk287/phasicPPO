@@ -37,7 +37,10 @@ class PPO(nn.Module):
         # list used to store data
         self.data = []
 
-        self.layer = nn.Linear(self.state_size, self.opts.layer_1)
+        self.layer = nn.Sequential(nn.Linear(self.state_size, self.opts.layer_1),
+                                   nn.ReLU(),
+                                   nn.Linear(self.opts.layer_1, self.opts.layer_1),
+                                   )
         self.policy = nn.Linear(self.opts.layer_1, self.action_size)
         self.value = nn.Linear(self.opts.layer_1, 1)
 
@@ -302,8 +305,6 @@ def main(config, checkpoint_dir=None):
     opts.seed = config['seed']
 
     running_score = deque(maxlen=100)
-    running_score.append(0)
-    # Init agent
 
     # initialize the environments
     env = gym.make(opts.env_name)
@@ -326,8 +327,9 @@ def main(config, checkpoint_dir=None):
         if "lambdas" in config:
             opts.lambdas = config['lambdas']
 
+    running_score.append(0)  # appending 0 here so np.mean() works.
 
-    while running_score or np.mean(running_score) < opts.win_condition:
+    while np.mean(running_score) < opts.win_condition:
 
         running_score = train(
             model,
@@ -349,7 +351,7 @@ def main(config, checkpoint_dir=None):
             )
 
         if step % 5 == 0:
-            print(running_score)
+            print(np.mean(running_score))
 
         tune.report(iters=step, scores=np.mean(running_score))
 
@@ -372,7 +374,7 @@ def pbt(opts):
         "lr": tune.choice([0.00005, 0.00001, 0.000025]),
         "epsilon": tune.choice([0.1, .15, .20]),
         "ppo_epochs": tune.choice([3, 4, 5]),
-        "horizon_multiplier": tune.choice([8, 16, 32]),
+        "horizon_multiplier": tune.choice([16, 32, 64]),
         "lambdas":tune.choice([0.5, 1.0, 1.5, 2.0]),
         "seed":tune.uniform(0, 1000000),
         }
@@ -414,7 +416,7 @@ def pbt(opts):
     ax.set_xlabel("Epochs")
     ax.set_ylabel("Score")
     ax.plot()
-    fig.savefig('tune_history.png')
+    fig.savefig('tune_history_1.png')
 
 if __name__ == "__main__":
 
